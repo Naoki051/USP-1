@@ -1,2 +1,2 @@
-# Desktop
-Todos os meu projetos, preciso organizar.
+# Sistemas Operacionais
+EP1 - Escalonador de Processos
