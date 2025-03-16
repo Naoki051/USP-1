@@ -46,4 +46,11 @@ def atualizar_status_vizinho(data, ip, port, status):
                 print(f"Status do vizinho {vizinho['ip']}:{vizinho['port']} atualizado para {status}.")
             vizinho_encontrado = True  # Define a flag como True se um vizinho for encontrado
     if not vizinho_encontrado:
-        print(f"Nenhum vizinho encontrado com o IP:PORT {ip}:{port}.")
+        novo_vizinho = {"ip": ip, "port": port, "status": status}
+        data['vizinhos'].append(novo_vizinho)
+        print(f"Adicionando novo peer {ip}:{port} status {status}")  # Print do vizinho adicionado
+        try:
+            with open("vizinhos.txt", "a") as arquivo:
+                arquivo.write(f"\n{ip}:{port}")
+        except Exception as e:
+            print(f"Erro ao adicionar vizinho ao arquivo: {e}")
