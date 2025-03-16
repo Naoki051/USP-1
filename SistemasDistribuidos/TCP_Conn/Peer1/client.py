@@ -18,7 +18,9 @@ def cliente(data,index,tipo, args=""):
             print("Encerrando conexão cliente...")
             
         if tipo == 'HELLO':
-            pass
+            if data['vizinhos'][index]['status'] != 'ONLINE':
+                data['vizinhos'][index]['status'] = 'ONLINE'
+                print(f"Status {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']} atualizado para ONLINE")
         else:
             try:
                 resposta = cliente_socket.recv(1024).decode()
@@ -32,6 +34,9 @@ def cliente(data,index,tipo, args=""):
         cliente_socket.close()
     except Exception as e:
         print(f"Erro ao conectar com {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']}: {e}")
+        if data['vizinhos'][index]['status'] != 'OFFLINE':
+            data['vizinhos'][index]['status'] = 'OFFLINE'
+            print(f"Status {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']} atualizado para OFFLINE")
 
 def dict_vizinhos(nome_arquivo='vizinhos.txt'):
     vizinho = []

@@ -9,6 +9,7 @@ data = {
 }
 
 def exibir_menu():
+    data["vizinhos"] = client.dict_vizinhos()
     while True:
         print("Escolha um comando: ")
         print("[1] Listar peers")
@@ -18,7 +19,6 @@ def exibir_menu():
         print("[5] Exibir estatisticas")
         print("[6] Alterar tamanho de chunk")
         print("[9] Sair")
-        data["vizinhos"] = client.dict_vizinhos()
         opcao =  input()
         if opcao == '1':
             client.listar_vizinhos(data)
@@ -30,6 +30,7 @@ def exibir_menu():
                 pass  # Opção 0: não fazer nada
             elif 1 <= opcao_int <= num_vizinhos:
                 client.cliente(data, opcao_int - 1, "HELLO")
+                print(data["vizinhos"][opcao_int-1]['status'])
         elif opcao == '2':
             for index, vizinho in enumerate(data['vizinhos']):
                 client.cliente(data, index, 'GET_PEERS')
