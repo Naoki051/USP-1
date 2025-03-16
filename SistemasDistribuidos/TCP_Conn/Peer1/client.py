@@ -7,36 +7,43 @@ def cliente(data,index,tipo, args=""):
     incrementa_clock(data)
 
     try:
-        cliente_socket.connect((data['vizinhos'][index]['ip'],data['vizinhos'][index]['port']))
-        print(f"Conectado ao servidor {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']}")
+        ip_vizinho = data['vizinhos'][index]['ip']
+        port_vizinho = data['vizinhos'][index]['port']
+        status_vizinho = data['vizinhos'][index]['status']
 
         mensagem = juntar_msg(data,tipo,args)
-        cliente_socket.send(mensagem.encode())
-        
+        print(f"Encaminhando mensagem \"{mensagem}\" para {ip_vizinho}:{port_vizinho}")
 
-        if tipo.upper() == "SAIR":
-            print("Encerrando conexão cliente...")
+        cliente_socket.connect((ip_vizinho,port_vizinho))
+        cliente_socket.send(mensagem.encode())
             
-        if tipo == 'HELLO':
-            if data['vizinhos'][index]['status'] != 'ONLINE':
+        if tipo.upper() == "HELLO":
+            if status_vizinho != 'ONLINE':
                 data['vizinhos'][index]['status'] = 'ONLINE'
-                print(f"Status {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']} atualizado para ONLINE")
+                print(f"Atualizando peer {ip_vizinho}:{port_vizinho} status ONLINE")
         else:
             try:
                 resposta = cliente_socket.recv(1024).decode()
-                print(f"Recebeu: {resposta}")
-                resposta = separar_msg(resposta)
-                incrementa_clock(data,resposta['origem_clock'])
+                if resposta:
+                    print(f"Resposta recebida: {resposta}")
+                    if  status_vizinho != 'ONLINE':
+                        data['vizinhos'][index]['status'] = 'ONLINE'
+                        print(f"Atualizando peer {ip_vizinho}:{port_vizinho} status ONLINE")
+                    resposta = separar_msg(resposta)
+                    incrementa_clock(data,resposta['origem_clock'])
+
+                    if resposta['tipo'] == 'PEER_LIST':
+                        atualizar_vizinhos(data, resposta['args'])
             except Exception as e:
-                print(f"Erro ao receber resposta: {e}")
+                print(f"Erro cliente ao receber resposta: {e}")
+        
             
 
         cliente_socket.close()
     except Exception as e:
-        print(f"Erro ao conectar com {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']}: {e}")
-        if data['vizinhos'][index]['status'] != 'OFFLINE':
+        if status_vizinho != 'OFFLINE':
             data['vizinhos'][index]['status'] = 'OFFLINE'
-            print(f"Status {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']} atualizado para OFFLINE")
+            print(f"Atualizando peer {ip_vizinho}:{port_vizinho} status ONLINE")
 
 def dict_vizinhos(nome_arquivo='vizinhos.txt'):
     vizinho = []
@@ -68,7 +75,7 @@ def separar_msg(mensagem):
     mensagem_tipo = partes[2]
 
     if len(partes) > 3: #argumentos opcionais existem        
-        argumentos = partes[3]
+        argumentos = partes[3:]
     else: #argumentos opcionais não existem
         argumentos = None
 
@@ -100,3 +107,37 @@ def listar_arquivos(data):
             print(arquivo)
     except FileNotFoundError:
         print(f"Erro: O diretório '{data['files_path']}' não foi encontrado.")
+
+def atualizar_vizinhos(data, mensagem):
+    try:
+        num_vizinhos = int(mensagem[0])
+        vizinhos_str = mensagem[1:]
+
+        for vizinho_str in vizinhos_str:
+            if vizinho_str:
+                ip, port, status, _ = vizinho_str.split(":")
+                port = int(port)
+                vizinho_encontrado = False
+                for vizinho in data['vizinhos']:
+                    if vizinho['ip'] == ip and vizinho['port'] == port:
+                        if vizinho['status'] != status:
+                            print(f"Atualizando peer {ip}:{port} status {status}")  # Print do vizinho encontrado
+                            vizinho['status'] = status
+                        vizinho_encontrado = True
+                        break
+
+                if not vizinho_encontrado:
+                    novo_vizinho = {"ip": ip, "port": port, "status": status}
+                    data['vizinhos'].append(novo_vizinho)
+                    print(f"Adicionando novo peer {ip}:{port} status {status}")  # Print do vizinho adicionado
+                    try:
+                        with open("vizinhos.txt", "a") as arquivo:
+                            arquivo.write(f"\n{ip}:{port}")
+                    except Exception as e:
+                        print(f"Erro ao adicionar vizinho ao arquivo: {e}")
+
+    except ValueError:
+        print(mensagem)
+        print("Erro ao processar a mensagem de vizinhos.")
+    except Exception as e:
+        print(f"Erro inesperado: {e}")

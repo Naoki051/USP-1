@@ -41,7 +41,7 @@ def exibir_menu():
                 client.cliente(data, index, 'BYE')
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
                 client_socket.connect((data["ip"],data["port"]))
-                mensagem = client.juntar_msg(data,"SAIR")
+                mensagem = "SAIR"
                 client_socket.send(mensagem.encode())
             break
 

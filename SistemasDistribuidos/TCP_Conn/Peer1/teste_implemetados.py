@@ -2,7 +2,7 @@ import threading,server,client
 
 data = {
     "ip": "127.0.0.1",
-    "port": 9009,
+    "port": 9000,
     "clock": 0,
     "files_path":'./arquivos',
     'vizinhos': []
@@ -67,3 +67,16 @@ def teste_listar_arquivos():
     client.listar_arquivos(data)
 
 # teste_listar_arquivos()
+
+def teste_atualiza_status_vizinho():
+    server.atualizar_status_vizinho(data,"127.0.0.1",9009,"ONLINE")
+
+# teste_atualiza_status_vizinho()
+
+def teste_adiciona_vizinho():
+    data["vizinhos"] = client.dict_vizinhos()
+    mensagem = "127.0.0.1:9001 8 PEER_LIST 4 127.0.0.1:9002:OFFLINE:0 127.0.0.1:9006:ONLINE:0 127.0.0.1:9043:ONLINE:0 127.0.0.1:9021:OFFLINE:0" 
+    partes = client.separar_msg(mensagem)
+    client.atualizar_vizinhos(data, partes['args'])
+
+# teste_adiciona_vizinho()
