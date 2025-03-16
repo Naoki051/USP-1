@@ -4,13 +4,13 @@ import os
 def cliente(data,index,tipo, args=""):
     """ Conecta-se a um servidor TCP e troca mensagens """
     cliente_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    incrementa_clock(data)
 
     try:
         cliente_socket.connect((data['vizinhos'][index]['ip'],data['vizinhos'][index]['port']))
         print(f"Conectado ao servidor {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']}")
 
         mensagem = juntar_msg(data,tipo,args)
-        incrementa_clock(data)
         cliente_socket.send(mensagem.encode())
         
 

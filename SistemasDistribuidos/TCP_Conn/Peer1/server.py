@@ -1,22 +1,5 @@
 import socket
-from client import separar_msg,incrementa_clock
-
-def dict_vizinhos(nome_arquivo='vizinhos.txt'):
-    vizinho = []
-    try:
-        with open(nome_arquivo, 'r') as arquivo:
-            for linha in arquivo:
-                linha = linha.strip()
-                if linha:
-                    ip, port = linha.split(':')
-                    vizinho.append({
-                        'ip': ip,
-                        'port': int(port),
-                        'status': 'OFFLINE'
-                    })
-    except FileNotFoundError:
-        print(f"Erro: Arquivo '{nome_arquivo}' não encontrado.")
-    return vizinho
+from client import separar_msg,incrementa_clock,dict_vizinhos
 
 def servidor(data):
     """ Inicia um servidor TCP que aceita conexões de um único peer """
@@ -30,6 +13,8 @@ def servidor(data):
             conexao, endereco = servidor_socket.accept()
             with conexao:
                 print(f"Conexão estabelecida com {endereco}")
+                atualizar_status_vizinho(data,endereco[0],"ONLINE")
+                
                 try:
                     mensagem = conexao.recv(1024).decode()
                     if not mensagem:
@@ -42,22 +27,27 @@ def servidor(data):
                         conexao.sendall("SAIR".encode())  # Confirma o encerramento
                         break
                     elif mensagem['tipo'].upper() == "GET_PEERS":
-                        resposta = f"{data['ip']}:{data['port']} {data['clock']} PEER_LIST {len(data['vizinhos'])} "
+                        resposta = f"{data['ip']}:{data['port']} {data['clock']} PEER_LIST {len(data['vizinhos'])-1} "
+
                         for vizinho in data['vizinhos']:
-                            resposta += f"{vizinho['ip']}:{vizinho['port']}:{vizinho['status']}:0 "
+                            if vizinho['ip'] != mensagem['origem_ip'] or vizinho['port'] != mensagem['origem_port']:
+                                resposta += f"{vizinho['ip']}:{vizinho['port']}:{vizinho['status']}:0 "
                         incrementa_clock(data)
                         conexao.send(resposta.encode())
+                    elif mensagem['tipo'].upper() == "BYE":
+                        atualizar_status_vizinho(data, mensagem['origem_ip'],"OFFLINE")
                 except Exception as e:
                     print(f"Erro na conexão: {e}")
                 
     print(f"Servidor finalizado.")
 
-data = {
-    "ip": "127.0.0.1",
-    "port": 9009,
-    "clock": 0,
-    "files_path":'./arquivos',
-    'vizinhos': []
-}
+def atualizar_status_vizinho(data, endereco,status):
+    """Atualiza o status do vizinho para status se o IP corresponder."""
+    for index, vizinho in enumerate(data['vizinhos']):
+        if vizinho['ip'] == endereco:
+            if vizinho['status'] != status:
+                vizinho['status'] = status
+                print(f"Status do vizinho {vizinho['ip']}:{vizinho['port']} atualizado para {status}.")
+            return  # Encerra a função após encontrar e atualizar o vizinho
 
-servidor(data)
+    print(f"Nenhum vizinho encontrado com o IP {endereco}.")

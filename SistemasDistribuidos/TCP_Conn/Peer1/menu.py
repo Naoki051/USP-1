@@ -1,8 +1,9 @@
-import client
+import client, server, socket
+import threading
 
 data = {
     "ip": "127.0.0.1",
-    "port": 9009,
+    "port": 9000,
     "clock": 0,
     "files_path":'./arquivos',
     'vizinhos': []
@@ -30,13 +31,28 @@ def exibir_menu():
                 pass  # Opção 0: não fazer nada
             elif 1 <= opcao_int <= num_vizinhos:
                 client.cliente(data, opcao_int - 1, "HELLO")
-                print(data["vizinhos"][opcao_int-1]['status'])
         elif opcao == '2':
             for index, vizinho in enumerate(data['vizinhos']):
                 client.cliente(data, index, 'GET_PEERS')
+        elif opcao == '3':
+            client.listar_arquivos(data)
         elif opcao == '9':
+            for index, vizinho in enumerate(data['vizinhos']):
+                client.cliente(data, index, 'BYE')
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+                client_socket.connect((data["ip"],data["port"]))
+                mensagem = client.juntar_msg(data,"SAIR")
+                client_socket.send(mensagem.encode())
             break
 
+def main():
+    thread_client = threading.Thread(target=exibir_menu)
+    thread_server = threading.Thread(target=server.servidor,args=(data,))
 
+    thread_server.start()
+    thread_client.start()
+    
+    thread_server.join()
+    thread_client.join()
 
-exibir_menu()
+main()
