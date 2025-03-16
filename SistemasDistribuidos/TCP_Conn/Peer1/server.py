@@ -17,21 +17,22 @@ def servidor(data):
                         break
                     print(f"Mensagem recebida: {mensagem}")
                     mensagem = separar_msg(mensagem)
+                    incrementa_clock(data,mensagem['origem_clock'])
 
-                    if mensagem['tipo'].upper() == "HELLO":
-                        atualizar_status_vizinho(data,mensagem['origem_ip'],mensagem['origem_port'],"ONLINE")
-                    elif mensagem['tipo'].upper() == "BYE":
+                    atualizar_status_vizinho(data,mensagem['origem_ip'],mensagem['origem_port'],"ONLINE")
+                    if mensagem['tipo'].upper() == "BYE":
                         atualizar_status_vizinho(data, mensagem['origem_ip'],mensagem['origem_port'],"OFFLINE")
                     elif mensagem['tipo'].upper() == "GET_PEERS":
                         resposta = f"{data['ip']}:{data['port']} {data['clock']} PEER_LIST {len(data['vizinhos'])-1} "
                         for vizinho in data['vizinhos']:
                             if vizinho['ip'] != mensagem['origem_ip'] or vizinho['port'] != mensagem['origem_port']:
                                 resposta += f"{vizinho['ip']}:{vizinho['port']}:{vizinho['status']}:0 "
-                        incrementa_clock(data)
+                        incrementa_clock(data,mensagem['origem_clock'])
+                        print(f"Encaminhando resposta: {resposta}")
                         conexao.send(resposta.encode())
                     
                 except Exception as e:
-                    print(f"Erro na conexão.")
+                    print(f"Erro na conexão.{e}")
                 
     print(f"Servidor finalizado.")
 

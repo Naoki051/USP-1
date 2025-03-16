@@ -32,7 +32,7 @@ def exibir_menu():
             elif 1 <= opcao_int <= num_vizinhos:
                 client.cliente(data, opcao_int - 1, "HELLO")
         elif opcao == '2':
-            for index, vizinho in enumerate(data['vizinhos']):
+            for index, vizinho in enumerate(list(data['vizinhos'])):
                 client.cliente(data, index, 'GET_PEERS')
         elif opcao == '3':
             client.listar_arquivos(data)
