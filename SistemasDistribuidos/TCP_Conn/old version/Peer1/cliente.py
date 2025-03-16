@@ -1,14 +1,15 @@
 import socket
-def cliente(peer_id,host,port):
-    try:
-        cliente_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        cliente_socket.connect((host,port))
-        while True:
-            msg = input(f"{peer_id}: ")
-            cliente_socket.send(msg.encode())
+def cliente(host,port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
+        try:
+            client_socket.connect((host,port))
+            msg = input(f"Enviar: ")
+            client_socket.send(msg.encode())
+            print(f"Message sent to {host}:{port}: {msg}")
+        except Exception as e:
+            print(f"Erro: {e}")
 
-            resposta = cliente_socket.recv(1024).decode()
-            print(f"resposta: {resposta}")
-    except Exception as e:
-        print(f"Erro: {e}")
+host = "127.0.0.1"
+port = 9000
 
+cliente(host,port)
