@@ -8,10 +8,11 @@ def cliente(data,index,tipo, args=""):
     try:
         cliente_socket.connect((data['vizinhos'][index]['ip'],data['vizinhos'][index]['port']))
         print(f"Conectado ao servidor {data['vizinhos'][index]['ip']}:{data['vizinhos'][index]['port']}")
-        mensagem = juntar_msg(data,tipo,args)
-        cliente_socket.send(mensagem.encode())
 
+        mensagem = juntar_msg(data,tipo,args)
         incrementa_clock(data)
+        cliente_socket.send(mensagem.encode())
+        
 
         if tipo.upper() == "SAIR":
             print("Encerrando conexão cliente...")
@@ -78,7 +79,6 @@ def separar_msg(mensagem):
 
 def incrementa_clock(data,msg_clock=0):
     data["clock"] = max(data["clock"], msg_clock) + 1
-    data["clock"] += 1
     print(f'Relógio atualizado para {data["clock"]}') 
     return
 

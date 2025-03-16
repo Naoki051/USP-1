@@ -37,15 +37,16 @@ def servidor(data):
                         # Encerra se a conexão for fechada
                     print(f"Recebido: {mensagem}")
                     mensagem = separar_msg(mensagem)
-                    incrementa_clock(data,mensagem['origem_clock'])
                     if mensagem['tipo'].upper() == "SAIR":
                         print("Encerrando conexão servidor...")
                         conexao.sendall("SAIR".encode())  # Confirma o encerramento
                         break
-                    resposta = f"{data['ip']}:{data['port']} {data['clock']} PEER_LIST {len(data['vizinhos'])} "
-                    for vizinho in data['vizinhos']:
-                        resposta += f"{vizinho['ip']}:{vizinho['port']}:{vizinho['status']}:0 "
-                    conexao.send(resposta.encode())
+                    elif mensagem['tipo'].upper() == "GET_PEERS":
+                        resposta = f"{data['ip']}:{data['port']} {data['clock']} PEER_LIST {len(data['vizinhos'])} "
+                        for vizinho in data['vizinhos']:
+                            resposta += f"{vizinho['ip']}:{vizinho['port']}:{vizinho['status']}:0 "
+                        incrementa_clock(data)
+                        conexao.send(resposta.encode())
                 except Exception as e:
                     print(f"Erro na conexão: {e}")
                 
