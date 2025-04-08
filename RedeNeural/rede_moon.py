@@ -96,6 +96,8 @@ def treinamento(entradas_treinamento, alvos_treinamento, num_neuronios_oculta, n
 
         erro_medio = erro_total / len(entradas_treinamento)
         historico_erros.append(erro_medio)
+        if erro_medio<=0.093:
+            break
         print(f"Época {epoca+1}/{num_epocas}, Erro Médio: {erro_medio:.6f}")
 
     return pesos_oculta, biases_oculta, pesos_saida, biases_saida, historico_erros
