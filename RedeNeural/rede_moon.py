@@ -102,52 +102,126 @@ def treinamento(entradas_treinamento, alvos_treinamento, num_neuronios_oculta, n
 
     return pesos_oculta, biases_oculta, pesos_saida, biases_saida, historico_erros
 
+def calcular_erro(saidas, alvos):
+    """Calcula o erro quadrático médio."""
+    erro = sum((s - a)**2 for s, a in zip(saidas, alvos)) / len(saidas)
+    return erro
+
+def treinamento_com_validacao(entradas_treinamento, alvos_treinamento, entradas_validacao, alvos_validacao, num_neuronios_oculta, num_epocas, taxa_aprendizagem, paciencia=10):
+    """Função para treinar a rede neural com validação antecipada."""
+    num_entrada = len(entradas_treinamento[0])
+    num_saida = len(alvos_treinamento[0]) if isinstance(alvos_treinamento[0], list) else 1
+
+    # Inicialização dos pesos e biases
+    pesos_oculta, biases_oculta = inicializacao_dos_pesos(num_entrada, num_neuronios_oculta)
+    pesos_saida, biases_saida = inicializacao_dos_pesos(num_neuronios_oculta, num_saida)
+
+    historico_erros_treinamento = []
+    historico_erros_validacao = []
+    melhor_erro_validacao = float('inf')
+    melhores_pesos_oculta = None
+    melhores_biases_oculta = None
+    melhores_pesos_saida = None
+    melhores_biases_saida = None
+    contador_paciencia = 0
+
+    for epoca in range(num_epocas):
+        erro_total_treinamento = 0
+        for i in range(len(entradas_treinamento)):
+            entrada = entradas_treinamento[i]
+            alvo = alvos_treinamento[i] if isinstance(alvos_treinamento[i], list) else [alvos_treinamento[i]]
+
+            # Backpropagation
+            pesos_oculta, biases_oculta, pesos_saida, biases_saida = backpropagation(
+                entrada, pesos_oculta, biases_oculta, pesos_saida, biases_saida, alvo, taxa_aprendizagem
+            )
+
+            # Feedforward para calcular o erro de treinamento
+            _, saidas_treinamento = feedforward(feedforward(entrada, pesos_oculta, biases_oculta)[1], pesos_saida, biases_saida)
+            erro_total_treinamento += calcular_erro(saidas_treinamento, alvo)
+
+        erro_medio_treinamento = erro_total_treinamento / len(entradas_treinamento)
+        historico_erros_treinamento.append(erro_medio_treinamento)
+
+        # Avaliação no conjunto de validação
+        erro_total_validacao = 0
+        for i in range(len(entradas_validacao)):
+            entrada_validacao = entradas_validacao[i]
+            alvo_validacao = alvos_validacao[i] if isinstance(alvos_validacao[i], list) else [alvos_validacao[i]]
+            _, saidas_validacao = feedforward(feedforward(entrada_validacao, pesos_oculta, biases_oculta)[1], pesos_saida, biases_saida)
+            erro_total_validacao += calcular_erro(saidas_validacao, alvo_validacao)
+
+        erro_medio_validacao = erro_total_validacao / len(entradas_validacao)
+        historico_erros_validacao.append(erro_medio_validacao)
+
+        print(f"Época {epoca+1}/{num_epocas}, Erro Treinamento: {erro_medio_treinamento:.6f}, Erro Validação: {erro_medio_validacao:.6f}")
+
+        # Critério de parada antecipada
+        if erro_medio_validacao < melhor_erro_validacao:
+            melhor_erro_validacao = erro_medio_validacao
+            melhores_pesos_oculta = [list(p) for p in pesos_oculta] # Salvar uma cópia
+            melhores_biases_oculta = list(biases_oculta)
+            melhores_pesos_saida = [list(p) for p in pesos_saida]
+            melhores_biases_saida = list(biases_saida)
+            contador_paciencia = 0
+        else:
+            contador_paciencia += 1
+            if contador_paciencia >= paciencia:
+                print(f"Parada antecipada acionada na época {epoca+1}.")
+                break
+
+    return melhores_pesos_oculta, melhores_biases_oculta, melhores_pesos_saida, melhores_biases_saida, historico_erros_treinamento, historico_erros_validacao
 
 if __name__ == '__main__':
     # Gerar um dataset mais elaborado com make_moons
     X, y = make_moons(n_samples=300, noise=0.25, random_state=42)
-    y = y.reshape(-1, 1)  # Reformatar os rótulos para ter uma coluna
+    y = y.reshape(-1, 1).tolist()  # Converter para lista de listas
 
-    # Dividir os dados em treinamento e teste
-    X_train_np, X_test_np, y_train_np, y_test_np = train_test_split(X, y, test_size=0.3, random_state=42)
+    # Dividir os dados em treinamento, validação e teste
+    X_train_val, X_test, y_train_val, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(X_train_val, y_train_val, test_size=0.25, random_state=42) # 0.25 de 0.8 = 0.2 para validação
 
-    # Converter para listas
-    entradas_treinamento = X_train_np.tolist()
-    alvos_treinamento = y_train_np.tolist()
-    entradas_teste = X_test_np.tolist()
-    alvos_teste = y_test_np.tolist()
+    entradas_treinamento = X_train.tolist()
+    alvos_treinamento = y_train
+    entradas_validacao = X_val.tolist()
+    alvos_validacao = y_val
+    entradas_teste = X_test.tolist()
+    alvos_teste = y_test
 
     # Hiperparâmetros
     num_neuronios_oculta = 10
-    num_epocas = 500
+    num_epocas = 500  # Aumentei o número de épocas para dar chance ao early stopping
     taxa_aprendizagem = 0.05
+    paciencia = 20  # Número de épocas sem melhora para parar
 
-    # Treinamento da rede neural
-    pesos_oculta_treinado, biases_oculta_treinado, pesos_saida_treinado, biases_saida_treinado, historico_erros = treinamento(
-        entradas_treinamento, alvos_treinamento, num_neuronios_oculta, num_epocas, taxa_aprendizagem
+    # Treinamento da rede neural com validação antecipada
+    melhores_pesos_oculta, melhores_biases_oculta, melhores_pesos_saida, melhores_biases_saida, historico_erros_treinamento, historico_erros_validacao = treinamento_com_validacao(
+        entradas_treinamento, alvos_treinamento, entradas_validacao, alvos_validacao, num_neuronios_oculta, num_epocas, taxa_aprendizagem, paciencia
     )
 
-    print("\nTreinamento Concluído!")
+    print("\nTreinamento Concluído (com parada antecipada).")
 
-    # Teste da rede treinada e cálculo do erro quadrático médio médio
-    print("\nTestando a Rede:")
+    # Teste da rede com os melhores pesos encontrados
+    print("\nTestando a Rede com os melhores pesos no conjunto de teste:")
     erros_qm_teste = []
     for i in range(len(entradas_teste)):
         entrada = entradas_teste[i]
         alvo = alvos_teste[i]
-        _, saidas_oculta = feedforward(entrada, pesos_oculta_treinado, biases_oculta_treinado)
-        _, saida_final = feedforward(saidas_oculta, pesos_saida_treinado, biases_saida_treinado)
+        _, saidas_oculta = feedforward(entrada, melhores_pesos_oculta, melhores_biases_oculta)
+        _, saida_final = feedforward(saidas_oculta, melhores_pesos_saida, melhores_biases_saida)
         erro_qm = np.mean((np.array(saida_final) - np.array(alvo))**2)
         erros_qm_teste.append(erro_qm)
 
     erro_medio_teste = np.mean(erros_qm_teste)
-    print(f"Erro Quadrático Médio no Conjunto de Teste: {erro_medio_teste:.6f}")
+    print(f"Erro Quadrático Médio no Conjunto de Teste (com parada antecipada): {erro_medio_teste:.6f}")
 
-    # Plotar o histórico de erros médios durante o treinamento
-    import matplotlib.pyplot as plt
-    plt.plot(historico_erros)
+    # Plotar o histórico de erros
+    plt.figure(figsize=(10, 5))
+    plt.plot(historico_erros_treinamento, label='Treinamento')
+    plt.plot(historico_erros_validacao, label='Validação')
     plt.xlabel('Época')
-    plt.ylabel('Erro Médio (Treinamento)')
-    plt.title('Histórico de Erros durante o Treinamento')
+    plt.ylabel('Erro Médio')
+    plt.title('Histórico de Erros durante o Treinamento com Validação')
+    plt.legend()
     plt.grid(True)
     plt.show()

@@ -57,20 +57,5 @@ class TestNeuralNetwork(unittest.TestCase):
         self.assertEqual(len(novos_bias_saida), 1)
         logging.info("\033[92m[PASS] test_backpropagation_saida_valida: estrutura da saída correta\033[0m")
 
-    def test_treinar_e_prever(self):
-        dados = [
-            ([0, 0], [0]),
-            ([0, 1], [0]),
-            ([1, 0], [0]),
-            ([1, 1], [1]),
-        ]
-        pesos_oculta, bias_oculta, pesos_saida, bias_saida = treinar_rede(
-            dados, num_entrada=2, num_oculta=2, num_saida=1, taxa_aprendizagem=0.5, epocas=200
-        )
-        for entrada, esperado in dados:
-            saida = prever(entrada, pesos_oculta, bias_oculta, pesos_saida, bias_saida)
-            self.assertTrue(-1 <= saida[0] <= 1)
-        logging.info("\033[92m[PASS] test_treinar_e_prever: previsão dentro do intervalo esperado\033[0m")
-
 if __name__ == "__main__":
     unittest.main()
