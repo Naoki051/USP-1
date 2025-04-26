@@ -1,4 +1,4 @@
-from rede import treinar_mlp, feedforward
+from rede import treinar_mlp_momentum, feedforward
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -7,7 +7,7 @@ estrutura_camadas = [2, 3, 1]
 X_treino = np.array([[0, 0], [0, 1], [1, 0], [1, 1]]).T
 Y_treino = np.array([[0, 1, 1, 0]])  # Exemplo de problema XOR
 
-parametros_treinados, custos_treinamento = treinar_mlp(estrutura_camadas, X_treino, Y_treino, num_epocas=20000, taxa_aprendizado=0.95, print_custo=False)
+parametros_treinados, custos_treinamento = treinar_mlp_momentum(estrutura_camadas, X_treino, Y_treino, num_epocas=3000, taxa_aprendizado=0.95, beta= 0.9, print_custo=False)
 
 print("\nParâmetros treinados:")
 for item in parametros_treinados:
