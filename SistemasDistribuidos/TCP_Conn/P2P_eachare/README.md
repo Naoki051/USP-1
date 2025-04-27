@@ -61,7 +61,6 @@ Para executar a suíte de testes completa, posicione-se no diretório raiz do pr
 python -m unittest discover tests
 ```
 
-````
 
 Este comando instrui o `unittest` a descobrir e executar todos os testes presentes nos arquivos localizados no diretório `tests`.
 
@@ -93,4 +92,4 @@ Este comando permite a execução de um subconjunto de testes, facilitando a dep
 - `time` (módulo padrão do Python)
 - `unittest` (módulo padrão do Python)
 - `unittest.mock` (módulo padrão do Python)
-````
+

@@ -1,4 +1,4 @@
-import socket
+import socket,os,base64
 from modules.utils import *
 
 def start_server(peer):
@@ -28,21 +28,35 @@ def conn_handler(conn,peer,mensagem):
     if mensagem == 'SAIR':
         return False
     print(f"Mensagem recebida: {mensagem}")
-    incrementa_clock(peer)
     mensagem_partes = separar_msg(mensagem)
     endereco_origem = mensagem_partes['endereco_origem']
     porta_origem = mensagem_partes['porta_origem']
+    clock_origem = mensagem_partes['clock_origem']
     tipo = mensagem_partes['tipo']
+    incrementa_clock(peer,clock_origem)
     if tipo == 'HELLO':
-        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'ONLINE')
+        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'ONLINE',clock_origem)
     elif tipo == 'GET_PEERS':
-        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'ONLINE')
-        incrementa_clock(peer)
+        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'ONLINE',clock_origem)
+        incrementa_clock(peer,clock_origem)
         resposta = construir_resposta_peers(peer, mensagem_partes)
-        print(f'Encaminhando resposta: "{resposta}"')
+        print(f'Encaminhando resposta: "{resposta}" para {endereco_origem}:{porta_origem}')
+        conn.sendall(resposta.encode())
+    elif tipo == 'LS':
+        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'ONLINE',clock_origem)
+        incrementa_clock(peer,clock_origem)
+        resposta = construir_resposta_ls(peer)
+        print(f'Encaminhando resposta: "{resposta}" para {endereco_origem}:{porta_origem}')
+        conn.sendall(resposta.encode())
+    elif tipo == 'DL':
+        nome_arquivo = mensagem_partes['args'][0]
+        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'ONLINE',clock_origem)
+        incrementa_clock(peer,clock_origem)
+        resposta = construir_resposta_dl(peer,nome_arquivo)
+        print(f'Encaminhando resposta: "{resposta}" para {endereco_origem}:{porta_origem}')
         conn.sendall(resposta.encode())
     elif tipo == 'BYE':
-        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'OFFLINE')
+        atualiza_status_vizinho(peer,endereco_origem,porta_origem,'OFFLINE',clock_origem)
     return True
 
 def construir_resposta_peers(peer, mensagem_separada):
@@ -52,6 +66,53 @@ def construir_resposta_peers(peer, mensagem_separada):
     vizinhos_formatados = []
     for vizinho in peer['vizinhos']:
         if vizinho[0] != mensagem_separada['endereco_origem'] or vizinho[1] != mensagem_separada['porta_origem']:
-            vizinhos_formatados.append(f"{vizinho[0]}:{vizinho[1]}:{vizinho[2]}:0")
+            vizinhos_formatados.append(f"{vizinho[0]}:{vizinho[1]}:{vizinho[2]}:{vizinho[3]}")
     resposta = f"{peer['endereco']}:{peer['porta']} {peer['clock']} PEER_LIST {len(vizinhos_formatados)} {' '.join(vizinhos_formatados)}"
     return resposta
+
+def construir_resposta_ls(peer):
+    """
+    Constrói uma resposta contendo a lista de arquivos do peer fornecendo o nome e tamanho do arquivo.
+    """
+    arquivos_info = []
+    resposta = ''
+    try:
+        for nome_arquivo in os.listdir(peer['diretorio_compartilhado']):
+            caminho_arquivo = os.path.join(peer['diretorio_compartilhado'], nome_arquivo)
+            if os.path.isfile(caminho_arquivo):
+                tamanho_arquivo = os.path.getsize(caminho_arquivo)
+                arquivos_info.append(f"{nome_arquivo}:{tamanho_arquivo}")
+    except FileNotFoundError:
+        print(f"Erro: Diretório compartilhado '{peer['diretorio_compartilhado']}' não encontrado.")
+    except Exception as e:
+        print(f"Erro ao listar arquivos: {e}")
+
+    resposta = f"{peer['endereco']}:{peer['porta']} {peer['clock']} LS_LIST {len(arquivos_info)} {' '.join(arquivos_info)}"
+    return resposta
+
+def construir_resposta_dl(peer, nome_arquivo):
+    """
+    Constrói uma mensagem de resposta DL contendo o conteúdo do arquivo solicitado.
+
+    Args:
+        peer (dict): Dicionário contendo informações do peer (endereco, porta, clock).
+        nome_arquivo (str): O nome do arquivo a ser enviado (localizado na pasta 'arquivos').
+
+    Returns:
+        str: Uma string formatada contendo as informações do peer, tipo de mensagem 'FILE',
+             nome do arquivo e o conteúdo do arquivo codificado em Base64.
+             Retorna None se o arquivo não for encontrado ou ocorrer um erro na leitura.
+    """
+    caminho_arquivo = os.path.join('arquivos', nome_arquivo)
+    try:
+        with open(caminho_arquivo, 'rb') as arquivo:
+            conteudo_arquivo = arquivo.read()
+            conteudo_base64 = base64.b64encode(conteudo_arquivo).decode('utf-8')
+            mensagem = f"{peer['endereco']}:{peer['porta']} {peer['clock']} FILE {nome_arquivo} 0 0 {conteudo_base64}"
+            return mensagem
+    except FileNotFoundError:
+        print(f"Erro: Arquivo '{nome_arquivo}' não encontrado na pasta 'arquivos'.")
+        return None
+    except Exception as e:
+        print(f"Erro ao ler o arquivo '{nome_arquivo}': {e}")
+        return None

@@ -1,8 +1,8 @@
-def incrementa_clock(peer):
+def incrementa_clock(peer,msg_clock = 0):
     """
     Incrementa o clock lógico do peer e imprime o novo valor.
     """
-    peer['clock'] = peer['clock']+1
+    peer['clock'] = max(msg_clock,peer['clock']) +1
     print(f"=> Atualizando relogio para {peer['clock']}") 
     return
 
@@ -40,19 +40,19 @@ def separar_msg(mensagem):
         print(f"Erro inesperado ao separar mensagem: {e}")
         return None
 
-def adiciona_vizinho(peer,endereco,porta,status):
+def adiciona_vizinho(peer,endereco,porta,status,clock):
     """
     Adiciona um novo vizinho à lista de vizinhos do peer e ao arquivo de vizinhos.
     """
     try:
-        peer['vizinhos'].append((endereco, porta, status))
+        peer['vizinhos'].append((endereco, porta, status, clock))
         with open(peer['vizinhos_file'], 'a') as arquivo_vizinhos:
             arquivo_vizinhos.write(f"\n{endereco}:{porta}")
         print(f"Adicionando novo peer {endereco}:{porta} status {status}")
     except Exception as e:
         print(f"Erro ao adicionar vizinho: {e}")
 
-def atualiza_status_vizinho(peer,endereco,porta,status):
+def atualiza_status_vizinho(peer,endereco,porta,status,clock=0):
     """
     Atualiza o status de um vizinho existente na lista de vizinhos do peer.
     Se o vizinho não existir, ele é adicionado à lista.
@@ -60,10 +60,12 @@ def atualiza_status_vizinho(peer,endereco,porta,status):
     try:
         for i, vizinho in enumerate(peer['vizinhos']):
             if endereco == vizinho[0] and porta == vizinho[1]:
-                peer['vizinhos'][i] = (endereco, porta, status)
-                print(f"Atualizando peer {endereco}:{porta} status {status}")
+                clock = max (vizinho[3],clock)
+                peer['vizinhos'][i] = (endereco, porta, status, clock)
+                if vizinho[2] != status:
+                    print(f"Atualizando peer {endereco}:{porta} status {status}")
                 return True
-        adiciona_vizinho(peer,endereco,porta,status)
+        adiciona_vizinho(peer,endereco,porta,status,clock)
         return True
     except IndexError:
         print("Erro: Vizinho mal formatado na lista de vizinhos.")
@@ -80,7 +82,6 @@ def vizinhos_txt_to_list(vizinhos_file='vizinhos.txt'):
     vizinhos = []
     try:
         with open(vizinhos_file, 'r', encoding='utf-8') as arquivo:
-            status = 'OFFLINE'
             for linha in arquivo:
                 linha = linha.strip()
                 dados = linha.split(':')
@@ -88,7 +89,7 @@ def vizinhos_txt_to_list(vizinhos_file='vizinhos.txt'):
                     endereco = dados[0].strip()
                     try:
                         porta = int(dados[1].strip())
-                        vizinhos.append((endereco, porta,status))
+                        vizinhos.append((endereco, porta,'OFFLINE',0))
                     except ValueError:
                         print(f"Erro: Porta inválida na linha: {linha}")
                 else:
