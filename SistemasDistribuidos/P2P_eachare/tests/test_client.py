@@ -139,6 +139,71 @@ class TestAtualizaStatusVizinho(unittest.TestCase):
         atualiza_status_vizinho(self.peer, '192.168.1.3', '8082', 'ONLINE')
         self.assertEqual(self.peer['vizinhos'][2], ('192.168.1.3', '8082', 'ONLINE'))
         
+class TestProcessarLsList(unittest.TestCase):
+
+    def test_lista_vazia(self):
+        resp_args = "0"
+        endereco_origem = "192.168.1.10"
+        porta_origem = 12345
+        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
+        self.assertEqual(resultado, [])
+
+    def test_um_arquivo(self):
+        resp_args = "1 arquivo1:1024"
+        endereco_origem = "10.0.0.5"
+        porta_origem = 54321
+        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
+        esperado = [{'nome': 'arquivo1', 'tamanho': 1024, 'peer': '10.0.0.5:54321'}]
+        self.assertEqual(resultado, esperado)
+
+    def test_multiplos_arquivos(self):
+        resp_args = "3 musica.mp3:5120 imagem.jpg:2048 documento.pdf:4096"
+        endereco_origem = "200.10.5.20"
+        porta_origem = 8080
+        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
+        esperado = [
+            {'nome': 'musica.mp3', 'tamanho': 5120, 'peer': '200.10.5.20:8080'},
+            {'nome': 'imagem.jpg', 'tamanho': 2048, 'peer': '200.10.5.20:8080'},
+            {'nome': 'documento.pdf', 'tamanho': 4096, 'peer': '200.10.5.20:8080'}
+        ]
+        self.assertEqual(resultado, esperado)
+
+    def test_arquivo_sem_tamanho(self):
+        resp_args = "1 arquivo_sem_tamanho:"
+        endereco_origem = "172.16.0.1"
+        porta_origem = 9000
+        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
+        esperado = [{'nome': 'arquivo_sem_tamanho', 'tamanho': 0, 'peer': '172.16.0.1:9000'}]
+        self.assertEqual(resultado, esperado)
+
+    def test_arquivo_com_tamanho_invalido(self):
+        resp_args = "1 arquivo_invalido:abc"
+        endereco_origem = "192.168.100.50"
+        porta_origem = 11111
+        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
+        esperado = [{'nome': 'arquivo_invalido', 'tamanho': 0, 'peer': '192.168.100.50:11111'}]
+        self.assertEqual(resultado, esperado)
+
+    def test_arquivo_com_nome_vazio(self):
+        resp_args = "1 :123"
+        endereco_origem = "10.1.1.1"
+        porta_origem = 22222
+        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
+        esperado = [{'nome': '', 'tamanho': 123, 'peer': '10.1.1.1:22222'}]
+        self.assertEqual(resultado, esperado)
+
+    def test_multiplos_arquivos_com_diferentes_formatos(self):
+        resp_args = "3 arq1:10 arq2: texto arq3:"
+        endereco_origem = "200.200.200.200"
+        porta_origem = 33333
+        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
+        esperado = [
+            {'nome': 'arq1', 'tamanho': 10, 'peer': '200.200.200.200:33333'},
+            {'nome': 'arq2', 'tamanho': 0, 'peer': '200.200.200.200:33333'},
+            {'nome': 'arq3', 'tamanho': 0, 'peer': '200.200.200.200:33333'}
+        ]
+        self.assertEqual(resultado, esperado)
+
 
 
 if __name__ == '__main__':
