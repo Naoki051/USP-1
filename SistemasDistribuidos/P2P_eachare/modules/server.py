@@ -1,5 +1,5 @@
 import socket,os,base64
-from modules.utils import *
+from modules.utils import separar_msg, incrementa_clock, atualiza_status_vizinho
 
 def start_server(peer):
     """
@@ -61,12 +61,16 @@ def conn_handler(conn,peer,mensagem):
 
 def construir_resposta_peers(peer, mensagem_separada):
     """
-    Constrói uma resposta contendo a lista de vizinhos do peer, com excessão do peer de origem.
+    Constrói uma resposta contendo a lista de vizinhos do peer, com exceção do peer de origem.
     """
     vizinhos_formatados = []
-    for vizinho in peer['vizinhos']:
-        if vizinho[0] != mensagem_separada['endereco_origem'] or vizinho[1] != mensagem_separada['porta_origem']:
-            vizinhos_formatados.append(f"{vizinho[0]}:{vizinho[1]}:{vizinho[2]}:{vizinho[3]}")
+    origem_peer_info = f"{mensagem_separada['endereco_origem']}:{mensagem_separada['porta_origem']}"
+    for vizinho_peer_info in peer['vizinhos']:
+        if vizinho_peer_info != origem_peer_info:
+            status = peer['vizinhos'][vizinho_peer_info].get('status', 'OFFLINE')  # Valor padrão se status não estiver presente
+            clock = peer['vizinhos'][vizinho_peer_info].get('clock', 0)          # Valor padrão se clock não estiver presente
+            vizinhos_formatados.append(f"{vizinho_peer_info}:{status}:{clock}")
+
     resposta = f"{peer['endereco']}:{peer['porta']} {peer['clock']} PEER_LIST {len(vizinhos_formatados)} {' '.join(vizinhos_formatados)}"
     return resposta
 
@@ -105,9 +109,9 @@ def construir_resposta_dl(peer, nome_arquivo):
     """
     caminho_arquivo = os.path.join('arquivos', nome_arquivo)
     try:
-        with open(caminho_arquivo, 'rb') as arquivo:
-            conteudo_arquivo = arquivo.read()
-            conteudo_base64 = base64.b64encode(conteudo_arquivo).decode('utf-8')
+        with open(os.path.join('arquivos', nome_arquivo), 'rb') as f:
+            conteudo = f.read()
+            conteudo_base64 = base64.b64encode(conteudo).decode('utf-8')
             mensagem = f"{peer['endereco']}:{peer['porta']} {peer['clock']} FILE {nome_arquivo} 0 0 {conteudo_base64}"
             return mensagem
     except FileNotFoundError:

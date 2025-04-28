@@ -1,210 +1,198 @@
-import socket, tempfile,os
-import threading
 import unittest
-from modules.client import *
-def servidor_teste(endereco, porta, mensagem_recebida):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        server_socket.bind((endereco, porta))
-        server_socket.listen(1)
-        try:
-            conn, addr = server_socket.accept()
-            with conn:
-                data = conn.recv(1024)
-                if data:
-                    mensagem_recebida["mensagem"] = data.decode() #armazena a mensagem recebida
-                    conn.sendall(data)
-        except Exception as e:
-            print(f"Exceção: {e}")
+import logging, sys
+from unittest.mock import patch, MagicMock
 
-class TestCliente(unittest.TestCase):
-    def setUp(self):
-        self.peer = {
-            "endereco": "127.0.0.1",
-            "porta": 12345,
-            "clock": 1,
-            'vizinhos': [("127.0.0.1", 12348, 'ONLINE')] 
-        }
-        self.endereco_servidor = "127.0.0.1"
-        self.porta_servidor = 12347
-        self.mensagem_recebida = {} #dicionario para armazenar a mensagem recebida
-        self.server_thread = threading.Thread(target=servidor_teste, args=(self.endereco_servidor, self.porta_servidor, self.mensagem_recebida))
-        self.server_thread.daemon = True
-        self.server_thread.start()
+# Configuração básica do logger (pode ser ajustada conforme sua necessidade)
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
-    def test_send_message_success(self):
-        mensagem_enviada = send_menssage(self.peer, self.endereco_servidor, self.porta_servidor, "TEST", "args")
-        mensagem_esperada = f'{self.peer["endereco"]}:{self.peer["porta"]} {self.peer["clock"]} TEST args'
-        self.assertEqual(mensagem_enviada, mensagem_esperada) #verifica se a mensagem recebida é a esperada
+class Colors:
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    RESET = '\033[0m'
 
-    def test_send_no_conn_exception(self):
-        resp = send_menssage(self.peer, "127.0.0.1", 12348, "TEST", "args")
-        self.assertTrue(resp)
+from modules.client import imprimir_lista_peers
 
-class TestProcessaPeerList(unittest.TestCase):
+class TestImprimirListaPeers(unittest.TestCase):
 
     def setUp(self):
-        # Cria um arquivo temporário vizinhos.txt
-        self.temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w+')
-        self.temp_file_name = self.temp_file.name
-        self.temp_file.close()
-
-        self.peer = {
-            'endereco': '127.0.0.1',
-            'porta': 9000,
-            'vizinhos_file': self.temp_file_name,  # Usa o arquivo temporário
-            'vizinhos': [
-                ('192.168.1.1', '8080', 'OFFLINE'),
-                ('192.168.1.2', '8081', 'ONLINE')
-            ]
+        self.vizinhos_dict = {
+            "127.0.0.1:9001": {"status": "ONLINE", "clock": 5},
+            "192.168.1.10:8000": {"status": "OFFLINE"},
+            "10.0.0.5:9005": {"status": "ONLINE", "clock": 10},
+            "200.20.20.20:7000": {} # Sem status
         }
-        self.rep_args = [
-            '127.0.0.1:9000:ONLINE:0',
-            '192.168.1.3:8082:ONLINE:0',
-            '192.168.1.2:8081:OFFLINE:0'
-        ]
+        self.vizinhos_vazio = {}
+
+        # Captura a saída do print
+        import io
+        import sys
+        self.held_output = io.StringIO()
+        self.old_stdout = sys.stdout
+        sys.stdout = self.held_output
 
     def tearDown(self):
-        # Remove o arquivo temporário
-        os.remove(self.temp_file_name)
+        # Restaura a saída padrão
+        sys.stdout = self.old_stdout
+        self.held_output.close()
 
-    def test_nao_atualiza_status_peer(self):
-        processa_peer_list(self.peer, self.rep_args)
-        self.assertEqual(self.peer['vizinhos'][0][2], 'OFFLINE')
+    def get_printed_output(self):
+        return self.held_output.getvalue().strip().split('\n')
 
-    def test_nao_adiciona_vizinho_existente(self):
-        processa_peer_list(self.peer, self.rep_args)
-        self.assertEqual(len(self.peer['vizinhos']), 3)
-
-    def test_rep_args_vazio(self):
-        rep_args_vazio = ['127.0.0.1:9000']
-        processa_peer_list(self.peer, rep_args_vazio)
-        self.assertEqual(len(self.peer['vizinhos']), 2)
-
-class TestAdicionaVizinho(unittest.TestCase):
-
-    def setUp(self):
-        # Cria um arquivo temporário para vizinhos.txt
-        self.temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w+')
-        self.temp_file_name = self.temp_file.name
-        self.temp_file.close()
-
-        self.peer = {
-            'endereco': '127.0.0.1',
-            'porta': 9000,
-            'vizinhos_file': self.temp_file_name,
-            'vizinhos': []
-        }
-
-    def tearDown(self):
-        # Remove o arquivo temporário
-        os.remove(self.temp_file_name)
-
-    def test_adiciona_vizinho_arquivo(self):
-        adiciona_vizinho(self.peer, '192.168.1.1', '8080', 'ONLINE')
-        with open(self.temp_file_name, 'r') as arquivo_vizinhos:
-            conteudo = arquivo_vizinhos.read()
-            self.assertIn('192.168.1.1:8080', conteudo)
-
-    def test_adiciona_vizinho_peer(self):
-        adiciona_vizinho(self.peer, '192.168.1.1', '8080', 'ONLINE')
-        self.assertEqual(self.peer['vizinhos'], [('192.168.1.1', '8080', 'ONLINE')])
-
-class TestAtualizaStatusVizinho(unittest.TestCase):
-
-    def setUp(self):
-        # Cria um arquivo temporário para vizinhos.txt
-        self.temp_file = tempfile.NamedTemporaryFile(delete=False, mode='w+')
-        self.temp_file_name = self.temp_file.name
-        self.temp_file.close()
-
-        self.peer = {
-            'endereco': '127.0.0.1',
-            'porta': 9000,
-            'vizinhos_file': self.temp_file_name,
-            'vizinhos': [
-                ('192.168.1.1', '8080', 'OFFLINE'),
-                ('192.168.1.2', '8081', 'ONLINE')
-            ]
-        }
-
-    def tearDown(self):
-        # Remove o arquivo temporário
-        os.remove(self.temp_file_name)
-
-    def test_atualiza_status_existente(self):
-        atualiza_status_vizinho(self.peer, '192.168.1.1', '8080', 'ONLINE')
-        self.assertEqual(self.peer['vizinhos'][0][2], 'ONLINE')
-
-    def test_adiciona_novo_vizinho(self):
-        atualiza_status_vizinho(self.peer, '192.168.1.3', '8082', 'ONLINE')
-        self.assertEqual(self.peer['vizinhos'][2], ('192.168.1.3', '8082', 'ONLINE'))
-        
-class TestProcessarLsList(unittest.TestCase):
+    def test_lista_com_peers(self):
+        imprimir_lista_peers(self.vizinhos_dict)
+        output = self.get_printed_output()
+        self.assertIn("Lista de peers:", output)
+        self.assertIn("\t[0] voltar para o menu anterior", output)
+        self.assertIn("\t[1] 127.0.0.1:9001 ONLINE 5", output)
+        self.assertIn("\t[2] 192.168.1.10:8000 OFFLINE desconhecido", output)
+        self.assertIn("\t[3] 10.0.0.5:9005 ONLINE 10", output)
+        self.assertIn("\t[4] 200.20.20.20:7000 desconhecido desconhecido", output)
+        logger.info(f"{Colors.GREEN}[PASS]{Colors.RESET} test_lista_com_peers")
 
     def test_lista_vazia(self):
-        resp_args = "0"
-        endereco_origem = "192.168.1.10"
-        porta_origem = 12345
-        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
-        self.assertEqual(resultado, [])
+        imprimir_lista_peers(self.vizinhos_vazio)
+        output = self.get_printed_output()
+        self.assertIn("Lista de peers:", output)
+        self.assertIn("\t[0] voltar para o menu anterior", output)
+        self.assertEqual(len(output), 2)
+        logger.info(f"{Colors.GREEN}[PASS]{Colors.RESET} test_lista_vazia")
 
-    def test_um_arquivo(self):
-        resp_args = "1 arquivo1:1024"
-        endereco_origem = "10.0.0.5"
-        porta_origem = 54321
-        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
-        esperado = [{'nome': 'arquivo1', 'tamanho': 1024, 'peer': '10.0.0.5:54321'}]
-        self.assertEqual(resultado, esperado)
+# Suponho que você importe assim:
+from modules.client import send_menssage
 
-    def test_multiplos_arquivos(self):
-        resp_args = "3 musica.mp3:5120 imagem.jpg:2048 documento.pdf:4096"
-        endereco_origem = "200.10.5.20"
-        porta_origem = 8080
-        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
-        esperado = [
-            {'nome': 'musica.mp3', 'tamanho': 5120, 'peer': '200.10.5.20:8080'},
-            {'nome': 'imagem.jpg', 'tamanho': 2048, 'peer': '200.10.5.20:8080'},
-            {'nome': 'documento.pdf', 'tamanho': 4096, 'peer': '200.10.5.20:8080'}
-        ]
-        self.assertEqual(resultado, esperado)
+class TestSendMenssage(unittest.TestCase):
 
-    def test_arquivo_sem_tamanho(self):
-        resp_args = "1 arquivo_sem_tamanho:"
-        endereco_origem = "172.16.0.1"
-        porta_origem = 9000
-        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
-        esperado = [{'nome': 'arquivo_sem_tamanho', 'tamanho': 0, 'peer': '172.16.0.1:9000'}]
-        self.assertEqual(resultado, esperado)
+    def log_result(self, test_name, success):
+        if success:
+            logging.info(f"{Colors.GREEN}[PASS]{Colors.RESET} {test_name}")
+        else:
+            logging.info(f"{Colors.RED}[ERROR]{Colors.RESET} {test_name}")
 
-    def test_arquivo_com_tamanho_invalido(self):
-        resp_args = "1 arquivo_invalido:abc"
-        endereco_origem = "192.168.100.50"
-        porta_origem = 11111
-        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
-        esperado = [{'nome': 'arquivo_invalido', 'tamanho': 0, 'peer': '192.168.100.50:11111'}]
-        self.assertEqual(resultado, esperado)
+    @patch('socket.socket')  # Moca o socket.socket inteiro
+    @patch('builtins.print') # Silencia os prints
+    def test_envio_mensagem(self, mock_print, mock_socket):
+        try:
+            # Configura o socket mockado
+            mock_client_socket = MagicMock()
+            mock_socket.return_value.__enter__.return_value = mock_client_socket
 
-    def test_arquivo_com_nome_vazio(self):
-        resp_args = "1 :123"
-        endereco_origem = "10.1.1.1"
-        porta_origem = 22222
-        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
-        esperado = [{'nome': '', 'tamanho': 123, 'peer': '10.1.1.1:22222'}]
-        self.assertEqual(resultado, esperado)
+            # Definir um peer fictício
+            peer = {
+                'endereco': '127.0.0.1',
+                'porta': '9001',
+                'clock': 5
+            }
+            endereco_servidor = '127.0.0.1'
+            porta_servidor = 9002
+            tipo = 'HELLO'
+            args = ''
 
-    def test_multiplos_arquivos_com_diferentes_formatos(self):
-        resp_args = "3 arq1:10 arq2: texto arq3:"
-        endereco_origem = "200.200.200.200"
-        porta_origem = 33333
-        resultado = processar_ls_list(resp_args, endereco_origem, porta_origem)
-        esperado = [
-            {'nome': 'arq1', 'tamanho': 10, 'peer': '200.200.200.200:33333'},
-            {'nome': 'arq2', 'tamanho': 0, 'peer': '200.200.200.200:33333'},
-            {'nome': 'arq3', 'tamanho': 0, 'peer': '200.200.200.200:33333'}
-        ]
-        self.assertEqual(resultado, esperado)
+            send_menssage(peer, endereco_servidor, porta_servidor, tipo, args)
+
+            # Verifica se conectou no lugar certo
+            mock_client_socket.connect.assert_called_once_with((endereco_servidor, porta_servidor))
+
+            # Verifica se mandou a mensagem certa
+            mensagem_esperada = f'127.0.0.1:9001 6 HELLO'
+            mock_client_socket.sendall.assert_called_once_with(mensagem_esperada.encode())
+
+            self.log_result("test_envio_mensagem", True)
+
+        except AssertionError:
+            self.log_result("test_envio_mensagem", False)
+            raise
+
+    @patch('socket.socket')
+    @patch('builtins.print')
+    def test_envio_mensagem_com_args(self, mock_print, mock_socket):
+        try:
+            mock_client_socket = MagicMock()
+            mock_socket.return_value.__enter__.return_value = mock_client_socket
+
+            peer = {
+                'endereco': '127.0.0.1',
+                'porta': '9001',
+                'clock': 7
+            }
+            endereco_servidor = '192.168.0.10'
+            porta_servidor = 8000
+            tipo = 'GET_FILE'
+            args = 'file.txt'
+
+            send_menssage(peer, endereco_servidor, porta_servidor, tipo, args)
+
+            # Verifica a conexão
+            mock_client_socket.connect.assert_called_once_with((endereco_servidor, porta_servidor))
+
+            # Verifica a mensagem enviada
+            mensagem_esperada = f'127.0.0.1:9001 8 GET_FILE file.txt'
+            mock_client_socket.sendall.assert_called_once_with(mensagem_esperada.encode())
+
+            self.log_result("test_envio_mensagem_com_args", True)
+
+        except AssertionError:
+            self.log_result("test_envio_mensagem_com_args", False)
+            raise
+
+from modules.client import listar_arquivos_locais
+
+class TestListarArquivosLocais(unittest.TestCase):
+
+    def log_result(self, test_name, success):
+        if success:
+            logging.info(f"{Colors.GREEN}[PASS]{Colors.RESET} {test_name}")
+        else:
+            logging.info(f"{Colors.RED}[ERROR]{Colors.RESET} {test_name}")
+
+    @patch('os.listdir')
+    @patch('builtins.print')
+    def test_listar_arquivos_sucesso(self, mock_print, mock_listdir):
+        try:
+            # Mockar retorno do listdir
+            mock_listdir.return_value = ['arquivo1.txt', 'arquivo2.txt']
+
+            resultado = listar_arquivos_locais('/caminho/falso')
+
+            # Verifica se chamou listdir corretamente
+            mock_listdir.assert_called_once_with('/caminho/falso')
+
+            # Verifica se imprimiu os arquivos
+            mock_print.assert_any_call('\tarquivo1.txt')
+            mock_print.assert_any_call('\tarquivo2.txt')
+
+            # Verifica que a função retorna True
+            self.assertTrue(resultado)
+
+            self.log_result("test_listar_arquivos_sucesso", True)
+
+        except AssertionError:
+            self.log_result("test_listar_arquivos_sucesso", False)
+            raise
+
+    @patch('os.listdir', side_effect=FileNotFoundError("Diretório não encontrado"))
+    @patch('builtins.print')
+    def test_listar_arquivos_erro(self, mock_print, mock_listdir):
+        try:
+            resultado = listar_arquivos_locais('/diretorio/inexistente')
+
+            # Verifica que tentou chamar listdir
+            mock_listdir.assert_called_once_with('/diretorio/inexistente')
+
+            # Verifica que printou o erro
+            mock_print.assert_any_call("Erro listar_arquivos_locais Diretório não encontrado em '/diretorio/inexistente'.")
+
+            # Verifica que a função retorna True mesmo com erro
+            self.assertTrue(resultado)
+
+            self.log_result("test_listar_arquivos_erro", True)
+
+        except AssertionError:
+            self.log_result("test_listar_arquivos_erro", False)
+            raise
+
 
 
 
 if __name__ == '__main__':
-    unittest.main()
+    unittest.main(verbosity=1)

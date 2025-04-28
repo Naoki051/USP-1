@@ -199,7 +199,38 @@ def treinar_mlp(camadas, X, Y, num_epocas, taxa_aprendizado, print_custo=False):
     gradientes = backpropagation(parametros, memoria_cache, Y)
     parametros = atualizar_parametros(parametros, gradientes, taxa_aprendizado)
 
+    if print_custo and i % 100 == 0:
+            print(f"Época {i}: Custo treino = {custo:.4f}, Custo val = {custo:.4f}")
+
   return parametros, custos
+
+def treinar_mlp_momentum(camadas, X, Y, num_epocas, taxa_aprendizado, beta=0.9, print_custo=False):
+    parametros = inicializar_parametros_e_bias(camadas)
+    custos = []
+
+    # Inicializa as velocidades com zeros, mesma estrutura dos parâmetros
+    velocidades = {}
+    for chave in parametros:
+        velocidades[chave] = np.zeros_like(parametros[chave])
+
+    for i in range(num_epocas):
+        memoria_cache = feedforward(X, parametros)
+        AL = memoria_cache['A' + str(len(camadas) - 1)]
+        custo = calcular_custo_mse(AL, Y)
+        custos.append(custo)
+
+        gradientes = backpropagation(parametros, memoria_cache, Y)
+
+        # Atualização com momento de inércia
+        for chave in parametros:
+            velocidades[chave] = beta * velocidades[chave] - taxa_aprendizado * gradientes[f"d{chave}"]
+            parametros[chave] += velocidades[chave]
+
+        if print_custo and i % 100 == 0:
+            print(f"Época {i}: Custo treino = {custo:.4f}, Custo val = {custo:.4f}")
+
+    return parametros, custos
+
 
 def treinar_mlp_com_parada_antecipada(camadas, X_treino, Y_treino, X_val, Y_val, num_epocas, taxa_aprendizado, paciencia=10, print_custo=False):
     parametros = inicializar_parametros_e_bias(camadas)
@@ -238,3 +269,67 @@ def treinar_mlp_com_parada_antecipada(camadas, X_treino, Y_treino, X_val, Y_val,
             print(f"Época {i}: Custo treino = {custo_treino:.4f}, Custo val = {custo_val:.4f}")
 
     return melhores_parametros, custos_treino, custos_val
+
+def treinar_mlp_momentum_com_parada_antecipada(camadas, X_treino, Y_treino, X_val, Y_val, 
+                                               num_epocas, taxa_aprendizado, beta=0.9, 
+                                               paciencia=50, epocas_minimas=280, print_custo=False):
+    """
+    Treina uma rede MLP com momentum, parada antecipada e verificação de overfitting
+    apenas após um número mínimo de épocas.
+    """
+
+    parametros = inicializar_parametros_e_bias(camadas)
+    custos_treino = []
+    custos_val = []
+
+    velocidades = {chave: np.zeros_like(parametros[chave]) for chave in parametros}
+
+    melhor_custo_val = float('inf')
+    contador_parada = 0
+    melhores_parametros = parametros.copy()
+
+    for i in range(num_epocas):
+
+        # Forward no treino
+        memoria_cache_treino = feedforward(X_treino, parametros)
+        AL_treino = memoria_cache_treino['A' + str(len(camadas) - 1)]
+        custo_treino = calcular_custo_mse(AL_treino, Y_treino)
+        custos_treino.append(custo_treino)
+
+        # Forward na validação
+        memoria_cache_val = feedforward(X_val, parametros)
+        AL_val = memoria_cache_val['A' + str(len(camadas) - 1)]
+        custo_val = calcular_custo_mse(AL_val, Y_val)
+        custos_val.append(custo_val)
+
+        # Backpropagation e atualização com momentum
+        gradientes = backpropagation(parametros, memoria_cache_treino, Y_treino)
+        for chave in parametros:
+            velocidades[chave] = beta * velocidades[chave] - taxa_aprendizado * gradientes[f"d{chave}"]
+            parametros[chave] += velocidades[chave]
+
+        # Atualizar melhor validação
+        if custo_val < melhor_custo_val:
+            melhor_custo_val = custo_val
+            melhores_parametros = parametros.copy()
+            contador_parada = 0
+        else:
+            contador_parada += 1
+
+        # Verificar overfitting só depois de um número mínimo de épocas
+        if i >= epocas_minimas and (custo_val<0.05) or (custo_treino<0.05):
+            if custo_val < custo_treino:
+                print(f"\nParada antecipada: overfitting detectado na época {i+1}.")
+                parametros = melhores_parametros
+                break
+
+        # Verificar paciência
+        if contador_parada >= paciencia:
+            print(f"\nParada antecipada: paciência esgotada ({paciencia}) na época {i+1}.")
+            parametros = melhores_parametros
+            break
+
+        if print_custo and i % 100 == 0:
+            print(f"Época {i}: Custo treino = {custo_treino:.4f}, Custo val = {custo_val:.4f}")
+
+    return parametros, custos_treino, custos_val

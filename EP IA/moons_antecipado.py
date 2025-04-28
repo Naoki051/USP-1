@@ -19,7 +19,7 @@ camadas = [2, 3, 1]
 parametros, custo_treino, custo_val = treinar_mlp_com_parada_antecipada(
     camadas, X_treino, Y_treino, X_val, Y_val,
     num_epocas=3000,
-    taxa_aprendizado=0.1,
+    taxa_aprendizado=0.9,
     paciencia=100,
     print_custo=True
 )
