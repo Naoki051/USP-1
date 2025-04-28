@@ -1,7 +1,7 @@
 import sys,os
 from modules.server import start_server
 from modules.client import start_client
-from modules.utils import vizinhos_txt_to_list
+from modules.utils import vizinhos_txt_to_dict
 import threading
 
 class ValidacaoErro(Exception):
@@ -57,7 +57,7 @@ def main(endereco_porta, vizinhos_txt, diretorio_compartilhado):
         peer["endereco"] = endereco
         peer["porta"] = porta
         peer["vizinhos_file"] = vizinhos_txt
-        peer["vizinhos"] = vizinhos_txt_to_list(vizinhos_txt)
+        peer["vizinhos"] = vizinhos_txt_to_dict(vizinhos_txt)
         peer["diretorio_compartilhado"] = diretorio_compartilhado
 
         thread_servidor = threading.Thread(target=start_server, args=(peer,))
@@ -78,6 +78,6 @@ if __name__ == "__main__":
     Verifica se o número correto de argumentos de linha de comando foi fornecido e chama a função main.
     """
     if len(sys.argv) != 4:
-        print("Uso: ./eachare <endereço>:<porta> <vizinhos.txt> <diretório_compartilhado>")
+        print("Uso: python eachare.py <endereço>:<porta> <vizinhos.txt> <diretório_compartilhado>")
         sys.exit(1)
     main(sys.argv[1], sys.argv[2], sys.argv[3])
