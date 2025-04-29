@@ -1,53 +1,80 @@
+import string
 import numpy as np
-from sklearn.model_selection import train_test_split
+from rede_mlp import treinar_mlp,feedforward_tanh,inicializar_pesos,backward_propagation_tanh
 import matplotlib.pyplot as plt
-from rede import treinar_mlp_momentum_com_parada_antecipada,treinar_mlp_momentum
 
-# Função para carregar os dados
-def carregar_dados(x_path, y_path):
-    # Carregar X com genfromtxt e ignorar a última coluna (se for sempre vazia)
-    X = np.genfromtxt(x_path, delimiter=',')[:, :-1].T
+def encode_alfabeto():
+    alfabeto = string.ascii_uppercase
+    tabela_encode = {}
+    tamanho_encode = len(alfabeto)
+    for i, letra in enumerate(alfabeto):
+        vetor = [0] * tamanho_encode
+        vetor[i] = 1
+        tabela_encode[letra] = vetor
+    return tabela_encode
 
-    # Carregar Y (o restante do seu código para Y permanece o mesmo)
-    with open(y_path, 'r') as f:
-        y_strings = [linha.strip() for linha in f.readlines()]
+saidas = []
+entradas = []
+with open('CARACTERES COMPLETO\\X.txt', 'r') as arquivo:
+    for linha in arquivo:
+        elementos = [int(elemento.strip()) for elemento in linha.strip().split(',') if elemento.strip()]
+        entradas.append(elementos)
 
-    # Converter letras para números 0-25
-    y_inteiros = np.array([ord(letra) - ord('A') for letra in y_strings])
+tamanho_total = len(entradas)
 
-    # One-hot encoding para saída (26 classes)
-    Y = np.zeros((26, len(y_inteiros)))
-    Y[y_inteiros, np.arange(len(y_inteiros))] = 1
+if tamanho_total < 260:
+    raise ValueError("O arquivo não contém dados suficientes para separar 130 amostras para teste e 130 para validação.")
 
-    return X, Y
+# Separar os últimos 130 para teste
+entradas_teste = entradas[-130:]
 
-# Carregar dados
-X, Y = carregar_dados('CARACTERES COMPLETO\X.txt', 'CARACTERES COMPLETO\Y_letra.txt')
+# Separar os 130 penúltimos para validação
+entradas_validacao = entradas[-260:-130]
 
-# Separar treino e validação
-X_treino, X_val, Y_treino, Y_val = train_test_split(X.T, Y.T, test_size=0.2, random_state=42)
-X_treino, X_val = X_treino.T, X_val.T
-Y_treino, Y_val = Y_treino.T, Y_val.T
+# O restante dos dados será para treinamento
+entradas_treino = entradas[:-260]
 
-# Definir estrutura da rede
-# Você pode mudar o número de neurônios na camada oculta aqui
-camadas = [120, 64, 26]  # Exemplo: 64 neurônios na camada oculta
+print(f"Tamanho do conjunto de treino: {len(entradas_treino)}")
+print(f"Tamanho do conjunto de validação: {len(entradas_validacao)}")
+print(f"Tamanho do conjunto de teste: {len(entradas_teste)}")
 
-# Treinamento
-parametros, custo_treino = treinar_mlp_momentum(
-    camadas, X_treino, Y_treino,
-    num_epocas=15000,
+# Você pode agora usar entradas_treino, entradas_validacao e entradas_teste
+with open('CARACTERES COMPLETO\Y_letra.txt','r') as arquivo:
+    for linha in arquivo:
+        saidas.append(linha.strip())
+
+tabela_codificacao = encode_alfabeto()
+for item in tabela_codificacao:
+    print(item,tabela_codificacao[item])
+print(entradas[0])
+print(saidas[0])
+
+entradas = np.array(entradas).T
+
+saidas_encoded = []
+for letra in saidas:
+    if letra in tabela_codificacao:
+        saidas_encoded.append(tabela_codificacao[letra])
+    else:
+        print(f"Aviso: Letra '{letra}' não encontrada na tabela de codificação.")
+saidas = np.array(saidas_encoded).T
+
+parametros_treinados, custos =treinar_mlp(
+    entrada_treino= entradas,
+    saida_treino= saidas,
+    num_entrada=120,
+    num_oculta=64,
+    num_saida=26,
     taxa_aprendizado=0.1,
-    beta=0.5,
-    print_custo=True
+    num_epocas=5000,
+    imprimir_custo=True,
 )
 
-# Plotar erro
-plt.figure(figsize=(10, 6))
-plt.plot(custo_treino, label="Treinamento")
-plt.xlabel("Épocas")
-plt.ylabel("Erro MSE")
-plt.title("Erro durante o Treinamento")
-plt.legend()
+# Plotar a curva de custo
+plt.figure(figsize=(8, 5))
+plt.plot(custos, color='blue')
+plt.xlabel('Época')
+plt.ylabel('Custo')
+plt.title('Curva de Custo durante o Treinamento')
 plt.grid(True)
 plt.show()
